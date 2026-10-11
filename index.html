@@ -467,7 +467,7 @@
                     return provider.link(search)
                 }
 
-                return `https://www.google.com/search?q=${search}`
+                return `https://www.bing.com/search?q=${search}`
             }
 
             document.addEventListener(
@@ -713,7 +713,7 @@
                             })
                     })
 
-                    displayWeather(true)
+                    startWeatherInterval(true)
 
                     // const bg = id('bg')
                     // window.addEventListener('focus', () => {
