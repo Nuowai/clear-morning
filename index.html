@@ -136,6 +136,79 @@
                 user-select: none;
             }
 
+            #search-icon {
+                font: inherit;
+                color: #fff;
+                background-color: transparent;
+                border: 0;
+                padding: 0;
+                cursor: pointer;
+                gap: 2px;
+            }
+
+            #search-icon:hover {
+                background-color: rgba(255, 255, 255, 0.12);
+            }
+
+            .engine-caret {
+                font-size: 10px;
+                opacity: 0.7;
+                line-height: 1;
+            }
+
+            #engine-menu {
+                position: absolute;
+                z-index: 20;
+                top: calc(100% + 8px);
+                left: 0;
+                min-width: 210px;
+                padding: 8px;
+                flex-direction: column;
+                gap: 4px;
+                color: #fff;
+                border: 1px solid rgba(255, 255, 255, 0.25);
+                background-color: rgba(0, 0, 0, 0.35);
+                backdrop-filter: blur(12px);
+                border-radius: 16px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            }
+
+            .engine-option {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 10px 12px;
+                border-radius: 12px;
+                background-color: transparent;
+                border: 1px solid transparent;
+                color: #fff;
+                font-size: 16px;
+                font-family: inherit;
+                cursor: pointer;
+                text-align: left;
+            }
+
+            .engine-option:hover {
+                background-color: rgba(255, 255, 255, 0.125);
+            }
+
+            .engine-option.active {
+                border-color: rgba(255, 255, 255, 0.35);
+                background-color: rgba(255, 255, 255, 0.08);
+            }
+
+            .engine-option-icon {
+                width: 26px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+
+            .engine-option-icon svg {
+                width: 20px;
+                height: 20px;
+            }
+
             #search > .input {
                 display: flex;
                 flex: 1;
@@ -470,7 +543,7 @@
                     match: (search) => search.startsWith('br '),
                     link: (search) =>
                         `https://search.brave.com/search?q=${search.slice(3)}`,
-                    icon: () => `<span class="engine-letter">B</span>`
+                    icon: () => `<span class="engine-letter">Br</span>`
                 },
                 {
                     id: 'ecosia',
@@ -510,6 +583,58 @@
 
             const getModeById = (id) => linkProviders.find((p) => p.id === id)
 
+            // Search engines shown in the picker (Bing is default, kept as-is)
+            const searchEngines = [
+                {
+                    id: 'bing',
+                    name: 'Bing',
+                    search: (query) =>
+                        `https://www.bing.com/search?q=${query}`,
+                    icon: () => `<span class="engine-letter">B</span>`
+                },
+                {
+                    id: 'google',
+                    name: 'Google',
+                    search: (query) =>
+                        `https://www.google.com/search?q=${query}`,
+                    icon: getModeById('google').icon
+                },
+                {
+                    id: 'duckduckgo',
+                    name: 'DuckDuckGo',
+                    search: (query) => `https://duckduckgo.com/?q=${query}`,
+                    icon: getModeById('duckduckgo').icon
+                },
+                {
+                    id: 'brave',
+                    name: 'Brave',
+                    search: (query) =>
+                        `https://search.brave.com/search?q=${query}`,
+                    icon: getModeById('brave').icon
+                },
+                {
+                    id: 'ecosia',
+                    name: 'Ecosia',
+                    search: (query) =>
+                        `https://www.ecosia.org/search?q=${query}`,
+                    icon: getModeById('ecosia').icon
+                },
+                {
+                    id: 'yahoo',
+                    name: 'Yahoo',
+                    search: (query) =>
+                        `https://search.yahoo.com/search?p=${query}`,
+                    icon: () => `<span class="engine-letter">Y!</span>`
+                }
+            ]
+
+            let currentEngine = 'bing'
+            try {
+                const saved = localStorage.getItem('search-engine')
+                if (saved && searchEngines.some((e) => e.id === saved))
+                    currentEngine = saved
+            } catch (e) {}
+
             const composeLink = (search) => {
                 const mode = detectSearchMode(null, search)
                 if (mode != null) {
@@ -517,7 +642,10 @@
                     return provider.link(search)
                 }
 
-                return `https://www.bing.com/search?q=${search}`
+                const engine =
+                    searchEngines.find((e) => e.id === currentEngine) ||
+                    searchEngines[0]
+                return engine.search(search)
             }
 
             document.addEventListener(
@@ -767,6 +895,77 @@
                                 suggestionBox.firstElementChild.focus()
                             })
                     })
+
+                    // Search engine picker
+                    const engineButton = id('search-icon')
+                    const engineCurrentIcon = id('engine-current-icon')
+                    const engineMenu = id('engine-menu')
+
+                    const getEngine = () =>
+                        searchEngines.find((e) => e.id === currentEngine) ||
+                        searchEngines[0]
+
+                    const updateEngineButton = () => {
+                        const engine = getEngine()
+                        engineCurrentIcon.innerHTML = engine.icon()
+                        searchBox.placeholder = `Search with ${engine.name}`
+                    }
+
+                    const renderEngineMenu = () => {
+                        while (engineMenu.firstChild)
+                            engineMenu.removeChild(engineMenu.firstChild)
+
+                        searchEngines.forEach((engine) => {
+                            const option = document.createElement('button')
+                            option.type = 'button'
+                            option.className =
+                                'engine-option' +
+                                (engine.id === currentEngine ? ' active' : '')
+                            option.innerHTML = `<span class="engine-option-icon">${engine.icon()}</span><span>${engine.name}</span>`
+                            option.addEventListener('click', () => {
+                                currentEngine = engine.id
+                                try {
+                                    localStorage.setItem(
+                                        'search-engine',
+                                        engine.id
+                                    )
+                                } catch (e) {}
+                                updateEngineButton()
+                                renderEngineMenu()
+                                engineMenu.style.display = 'none'
+                                searchBox.focus()
+                            })
+                            engineMenu.appendChild(option)
+                        })
+                    }
+
+                    const closeEngineMenu = () => {
+                        engineMenu.style.display = 'none'
+                    }
+
+                    engineButton.addEventListener('click', (event) => {
+                        event.stopPropagation()
+                        if (engineMenu.style.display === 'none') {
+                            renderEngineMenu()
+                            engineMenu.style.display = 'flex'
+                        } else {
+                            closeEngineMenu()
+                        }
+                    })
+
+                    document.addEventListener('click', (event) => {
+                        if (
+                            engineMenu.style.display !== 'none' &&
+                            !engineMenu.contains(event.target)
+                        )
+                            closeEngineMenu()
+                    })
+
+                    document.addEventListener('keydown', (event) => {
+                        if (event.key === 'Escape') closeEngineMenu()
+                    })
+
+                    updateEngineButton()
 
                     startWeatherInterval(true)
 
@@ -1138,31 +1337,15 @@
             <div id="engine">
                 <form id="search">
                     <div class="input-search-element">
-                        <div
+                        <button
+                            type="button"
                             class="input-search-element-inner transition"
                             id="search-icon"
+                            title="切换搜索引擎"
                         >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="3"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                class="icon"
-                            >
-                                <circle cx="11" cy="11" r="8"></circle>
-                                <line
-                                    x1="21"
-                                    y1="21"
-                                    x2="16.65"
-                                    y2="16.65"
-                                ></line>
-                            </svg>
-                        </div>
+                            <span id="engine-current-icon"></span>
+                            <span class="engine-caret">▾</span>
+                        </button>
                         <div
                             class="input-search-element-inner transition fade-out-down"
                             id="search-icon-override"
@@ -1197,6 +1380,8 @@
                         </svg>
                     </button>
                 </form>
+
+                <div id="engine-menu" style="display: none"></div>
 
                 <section id="suggestion" style="display: none"></section>
 
