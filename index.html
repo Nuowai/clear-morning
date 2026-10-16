@@ -662,11 +662,38 @@
                     window.focus()
                     searchBox.focus()
 
-                    // Continue video from last time
-                    const timestamp = localStorage.getItem('bg:time')
-                    if (timestamp) {
-                        const bg = id('bg')
-                        bg.currentTime = timestamp
+                    // Continue video from last time + nudge autoplay
+                    // (iOS Safari needs playsinline + a play() call)
+                    const bgVideo = id('bg')
+                    bgVideo.muted = true
+                    const resumeTimestamp = localStorage.getItem('bg:time')
+                    const startBgVideo = () => {
+                        if (resumeTimestamp) {
+                            try {
+                                bgVideo.currentTime =
+                                    parseFloat(resumeTimestamp)
+                            } catch (e) {}
+                        }
+                        const p = bgVideo.play()
+                        if (p) p.catch(() => {})
+                    }
+                    const nudgeBgVideo = () => {
+                        bgVideo.play().catch(() => {})
+                    }
+                    document.addEventListener('touchstart', nudgeBgVideo, {
+                        once: true
+                    })
+                    document.addEventListener('click', nudgeBgVideo, {
+                        once: true
+                    })
+                    if (bgVideo.readyState >= 1) {
+                        startBgVideo()
+                    } else {
+                        bgVideo.addEventListener(
+                            'loadedmetadata',
+                            startBgVideo,
+                            { once: true }
+                        )
                     }
 
                     // Clock
@@ -1252,8 +1279,8 @@
 
     <body id="opened">
         <div id="overlay"></div>
-        <video id="bg" autoplay muted loop>
-            <source src="./ba_pv5.mp4" />
+        <video id="bg" autoplay muted loop playsinline preload="auto">
+            <source src="./ba_pv5.mp4" type="video/mp4" />
         </video>
         <main id="app">
             <h1 id="time">
